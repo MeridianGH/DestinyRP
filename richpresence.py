@@ -1,0 +1,2 @@
+import pydest
+import pypresence
