@@ -125,3 +125,6 @@ dmypy.json
 # IDEA
 .idea
 idea/
+
+# Destiny 2 API Manifest
+*.content
