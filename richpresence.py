@@ -1,12 +1,32 @@
 import os
-from dotenv import load_dotenv
+import sys
+from dotenv import load_dotenv  # python-dotenv
 import pydest
 import pypresence
 import asyncio
-import nest_asyncio
-import config
+import nest_asyncio  # nest-asyncio
+import yaml  # PyYaml
 
-load_dotenv(dotenv_path='./venv/.env')
+
+if hasattr(sys, '_MEIPASS'):
+    path = '/'.join(sys.executable.split('\\')[0:-1])
+else:
+    path = '/'.join(__file__.split('/')[0:-1])
+try:
+    config = yaml.safe_load(open(path + '/config.yml', encoding='utf8'))
+except FileNotFoundError or Exception:
+    print(f'Please place a valid config.yml in this directory: {path}')
+    input()
+    raise Exception('No config provided!')
+
+
+def resource_path(relative_path):
+    if hasattr(sys, "_MEIPASS"):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(relative_path)
+
+
+load_dotenv(dotenv_path=resource_path('./venv/.env'))
 api_key = os.getenv('API_KEY')
 client_id = os.getenv('CLIENT_ID')
 headers = {"X-API-Key": api_key}
@@ -135,8 +155,13 @@ def parse_activity(activity, mode):
             mode_name = 'Playing: Vanguard Strike'
             image = {'asset': 'gambit', 'text': mode_name}
         elif mode_name == 'Scored Nightfall Strikes':
-            mode_name = 'Playing: Nightfall Strike'
-            activity_name = activity_name.replace('Nightfall: ', '')
+            if 'The Ordeal' in activity_name:
+                mode_name = 'Nightfall: The Ordeal'
+                activity_name = activity.get('displayProperties').get('description') + ' - ' + \
+                    activity_name.replace('Nightfall: The Ordeal: ', '')
+            else:
+                mode_name = 'Playing: Nightfall Strike'
+                activity_name = activity_name.replace('Nightfall: ', '')
             image = {'asset': 'nightfall', 'text': mode_name}
         # Gambit
         elif mode_name == 'Gambit' or mode_name == 'Gambit Prime' or mode_name == 'The Reckoning':
@@ -183,11 +208,11 @@ async def main(username, platform):
     await set_presence(None, None)
     while True:
         activity, mode = await get_info(username, platform)
-        await asyncio.sleep(15)
+        await asyncio.sleep(7)
         await set_presence(activity, mode)
-        await asyncio.sleep(15)
+        await asyncio.sleep(8)
 
 
 if __name__ == '__main__':
-    loop.create_task(main(config.username, config.platform))
+    loop.create_task(main(config['username'], config['platform']))
     loop.run_forever()
