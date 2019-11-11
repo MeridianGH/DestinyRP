@@ -47,7 +47,7 @@ async def get_info(username, platform):
         platform = -1
     user = await destiny.api.search_destiny_player(platform, username)
     if user['Response']:
-        print('Found player \'' + user.get('Response')[0].get('displayName') + '\'!')
+        # print('Found player \'' + user.get('Response')[0].get('displayName') + '\'!')
         info = await destiny.api.get_profile(membership_type=user.get('Response')[0].get('membershipType'),
                                              membership_id=user.get('Response')[0].get('membershipId'),
                                              components=['characterActivities'])
@@ -92,8 +92,6 @@ async def get_info(username, platform):
 
 
 async def set_presence(activity, mode):
-    print(mode)
-    print(activity)
     activity, mode, image = parse_activity(activity, mode)
     print(mode)
     print(activity)
