@@ -1,9 +1,10 @@
 import os
 from dotenv import load_dotenv
 import pydest
-import asyncio
 import pypresence
+import asyncio
 import nest_asyncio
+import config
 
 load_dotenv(dotenv_path='./venv/.env')
 api_key = os.getenv('API_KEY')
@@ -20,9 +21,13 @@ rpc = pypresence.Presence(client_id)
 
 async def get_info(username, platform):
     destiny = pydest.Pydest(api_key)
-    user = await destiny.api.search_destiny_player(platforms[platform], username)
+    try:
+        platform = platforms[platform]
+    except KeyError:
+        platform = -1
+    user = await destiny.api.search_destiny_player(platform, username)
     if user['Response']:
-        # print('Found player \'' + user.get('Response')[0].get('displayName') + '\'!')
+        print('Found player \'' + user.get('Response')[0].get('displayName') + '\'!')
         info = await destiny.api.get_profile(membership_type=user.get('Response')[0].get('membershipType'),
                                              membership_id=user.get('Response')[0].get('membershipId'),
                                              components=['characterActivities'])
@@ -39,7 +44,11 @@ async def get_info(username, platform):
                             return activity, {'displayProperties': {'name': 'Orbit'}}
 
                         mode_hash = abs(int(data.get(character).get('currentActivityModeHash')))
-                        mode = await destiny.decode_hash(mode_hash, 'DestinyActivityModeDefinition')
+                        try:
+                            mode = await destiny.decode_hash(mode_hash, 'DestinyActivityModeDefinition')
+                        except pydest.PydestException or Exception:
+                            await destiny.close()
+                            return activity, {'displayProperties': {'name': 'Activity'}}
                         await destiny.close()
                         return activity, mode
                     except pydest.PydestException or Exception as e:
@@ -63,11 +72,11 @@ async def get_info(username, platform):
 
 
 async def set_presence(activity, mode):
-    print(activity)
     print(mode)
+    print(activity)
     activity, mode, image = parse_activity(activity, mode)
-    print(activity)
     print(mode)
+    print(activity)
     if mode is None:
         rpc.update(state='Launching game...', large_image='main', large_text='Starting D2 RPC')
     else:
@@ -94,18 +103,33 @@ def parse_activity(activity, mode):
                 activity_name = 'Titan: New PacificArcology'
             elif activity_name == 'Nessus, Unstable Centaur':
                 activity_name = 'Nessus: Arcadian Valley'
-            elif activity_name == 'Moon':
-                activity_name = 'Moon'
+            elif activity_name == 'The Moon':
+                activity_name = 'The Moon'
             elif activity_name == 'The Dreaming City':
                 activity_name = 'The Dreaming City'
             elif activity_name == 'The Tangled Shore':
                 activity_name = 'The Tangled Shore'
+            else:
+                # Adventures and other Activities
+                if activity_name == 'The Tribute Hall':
+                    mode_name = 'In the Tribute Hall'
+                    activity_name = None
+                    image = {'asset': 'exploring', 'text': 'In the Tribute Hall'}
+                else:
+                    mode_name = 'Playing: Adventure'
+                    image = {'asset': 'exploring', 'text': 'Exploring'}
+                return activity_name, mode_name, image
             mode_name = 'Exploring:'
             image = {'asset': 'exploring', 'text': 'Exploring'}
         # Story
         elif mode_name == 'Story':
-            mode_name = 'Playing: Story'
-            image = {'asset': 'story', 'text': mode_name}
+            # Dungeons
+            if activity_name == 'The Shattered Throne' or activity_name == 'Pit of Heresy':
+                mode_name = 'Playing: Dungeon'
+                image = {'asset': 'nightmarehunt', 'text': mode_name}
+            else:
+                mode_name = 'Playing: Story'
+                image = {'asset': 'story', 'text': mode_name}
         # Strikes
         elif mode_name == 'Normal Strikes':
             mode_name = 'Playing: Vanguard Strike'
@@ -115,14 +139,33 @@ def parse_activity(activity, mode):
             activity_name = activity_name.replace('Nightfall: ', '')
             image = {'asset': 'nightfall', 'text': mode_name}
         # Gambit
-        elif mode_name == 'Gambit' or mode_name == 'Gambit Prime':
+        elif mode_name == 'Gambit' or mode_name == 'Gambit Prime' or mode_name == 'The Reckoning':
             mode_name = 'Playing: ' + mode_name
             image = {'asset': 'gambit', 'text': mode_name}
         # Crucible
-        elif mode.get('displayProperties').get('pcgrImage') == '/img/theme/destiny/bgs/stats/banner_crucible_1.jpg':
-            mode_name = 'Playing Crucible: ' + mode_name
-            activity_name = activity_name + ' - ' + activity.get('displayProperties').get('description')
-            image = {'asset': 'crucible', 'text': mode_name}
+        elif mode.get('pgcrImage') == '/img/theme/destiny/bgs/stats/banner_crucible_1.jpg':
+            if 'Iron Banner' in mode_name:
+                mode_name = 'Playing Iron Banner: ' + mode_name.replace('Iron Banner ', '')
+                image = {'asset': 'iron_banner', 'text': mode_name}
+            else:
+                mode_name = 'Playing Crucible: ' + mode_name
+                image = {'asset': 'crucible', 'text': mode_name}
+        # Menagerie
+        elif mode_name == 'The Menagerie':
+            mode_name = 'Playing: Menagerie'
+            activity_name = activity_name.replace('The Menagerie: ', '')
+            image = {'asset': 'menagerie', 'text': mode_name}
+        elif mode_name == 'Raid':
+            mode_name = 'Playing: Raid'
+            image = {'asset': 'raid', 'text': mode_name}
+        elif mode_name == 'Activity':
+            if activity_name.startswith('Nightmare Hunt:'):
+                mode_name = 'Playing: Nightmare Hunt'
+                activity_name = activity_name.replace('Nightmare Hunt: ', '')
+                image = {'asset': 'nightmare_hunt', 'text': mode_name}
+            elif activity_name == 'Vex Offensive':
+                mode_name = 'Playing: Vex Offensive'
+                image = {'asset': 'vex_offensive', 'text': 'Playing: Vex Offensive'}
         # Tower and Orbit
         elif mode_name == 'Social':
             mode_name = 'In the Tower'
@@ -146,6 +189,5 @@ async def main(username, platform):
 
 
 if __name__ == '__main__':
-    name = input('Username: ')
-    loop.create_task(main(name, 'All'))
+    loop.create_task(main(config.username, config.platform))
     loop.run_forever()
