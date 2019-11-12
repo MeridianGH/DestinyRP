@@ -151,7 +151,7 @@ def parse_activity(activity, mode):
         # Strikes
         elif mode_name == 'Normal Strikes':
             mode_name = 'Playing: Vanguard Strike'
-            image = {'asset': 'gambit', 'text': mode_name}
+            image = {'asset': 'strike', 'text': mode_name}
         elif mode_name == 'Scored Nightfall Strikes':
             if 'The Ordeal' in activity_name:
                 mode_name = 'Nightfall: The Ordeal'
@@ -178,9 +178,11 @@ def parse_activity(activity, mode):
             mode_name = 'Playing: Menagerie'
             activity_name = activity_name.replace('The Menagerie: ', '')
             image = {'asset': 'menagerie', 'text': mode_name}
+        # Raids
         elif mode_name == 'Raid':
             mode_name = 'Playing: Raid'
             image = {'asset': 'raid', 'text': mode_name}
+        # Other activities
         elif mode_name == 'Activity':
             if activity_name.startswith('Nightmare Hunt:'):
                 mode_name = 'Playing: Nightmare Hunt'
